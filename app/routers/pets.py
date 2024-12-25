@@ -1,21 +1,20 @@
-from fastapi import FastAPI, HTTPException
-from typing import List
-from models.pet import PetBase, Pet
+
+from fastapi import APIRouter, HTTPException
 from uuid import uuid4 as uuid
 
-app = FastAPI()
+from ..models.pet import PetBase, Pet
+from ..db.db import pets
 
-pets: List[Pet] = []
+router = APIRouter(
+  prefix="/pets",
+  tags=["pets"],
+)
 
-@app.get('/health-check')
-async def health_check():
-  return {"message": 'OK'}
-
-@app.get('/pets')
+@router.get('')
 async def get_pets():
   return pets
 
-@app.post('/pets', status_code=201)
+@router.post('', status_code=201)
 async def create_pet(pet: PetBase):
   new_pet = Pet(**pet.model_dump(), id=str(uuid()))
 
@@ -23,7 +22,7 @@ async def create_pet(pet: PetBase):
   
   return new_pet
 
-@app.get('/pets/{id}')
+@router.get('/{id}')
 async def get_pet(id: str):
   pet = next((a for a in pets if a.id == id), None)
 
@@ -32,7 +31,7 @@ async def get_pet(id: str):
   
   return pet
 
-@app.delete('/pets/{id}')
+@router.delete('/{id}')
 async def delete_pet(id: str):
   pet = next((a for a in pets if a.id == id), None)
   
@@ -43,7 +42,7 @@ async def delete_pet(id: str):
 
   return pet
 
-@app.put('/pets/{id}')
+@router.put('/{id}')
 async def update_pet(id: str, pet: PetBase):  
   for i, item in enumerate(pets):
     if item.id == id:

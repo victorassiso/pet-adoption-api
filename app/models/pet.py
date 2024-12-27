@@ -1,16 +1,24 @@
-from pydantic import BaseModel
-from typing import Optional, Literal, List
+from typing import List, Optional
 from datetime import date
+from sqlmodel import Field, SQLModel, JSON, Column
+from uuid import uuid4 as uuid, UUID
+from enum import Enum
 
-class PetBase(BaseModel):
-  name: str
-  age: int
-  birthdate: Optional[date]  # Estimated or known birthdate
-  birthdate_is_estimate: bool = True  # Whether it's an estimated date
-  sex: Literal['male', 'female']
-  species: Literal['dog', 'cat']
-  pictures: List[str]
-  adopted: bool = False # default value
+class Sex(str, Enum):
+  MALE = 'male'
+  FEMALE = 'female'
 
-class Pet(PetBase):
-  id: str
+class Species(str, Enum):
+  DOG = 'dog'
+  CAT = 'cat'
+
+class Pet(SQLModel, table=True):
+  id: UUID = Field(default_factory=uuid, primary_key=True)
+  name: str = Field(index=True)
+  age: int = Field(index=True)
+  # birthdate: Optional[date] = Field(default=None, index=True)
+  # birthdate_is_estimate: bool = Field(default=True)
+  # sex: Sex = Field(index=True)
+  # species: Species = Field(index=True)
+  # pictures: List[str] = Field(sa_column=Column(JSON))
+  # adopted: bool = Field(default=False, index=True)

@@ -1,9 +1,11 @@
 
 from fastapi import APIRouter, HTTPException
-from uuid import uuid4 as uuid
+from sqlmodel import select
+from uuid import UUID
+from typing import Dict
 
-from ..models.pet import PetBase, Pet
-from ..db.db import pets
+from ..models.pet import Pet
+from ..db.db import SessionDep
 
 router = APIRouter(
   prefix="/pets",
@@ -11,20 +13,20 @@ router = APIRouter(
 )
 
 @router.get('')
-async def get_pets():
+async def get_pets(session: SessionDep):
+  pets = session.exec(select(Pet)).all()
   return pets
 
 @router.post('', status_code=201)
-async def create_pet(pet: PetBase):
-  new_pet = Pet(**pet.model_dump(), id=str(uuid()))
-
-  pets.append(new_pet)
-  
-  return new_pet
+async def create_pet(pet: Pet, session: SessionDep) -> Pet:
+  session.add(pet)
+  session.commit()
+  session.refresh(pet)
+  return pet
 
 @router.get('/{id}')
-async def get_pet(id: str):
-  pet = next((a for a in pets if a.id == id), None)
+async def get_pet(id: UUID, session: SessionDep):
+  pet = session.exec(select(Pet).where(Pet.id == id)).first()
 
   if not pet:
     raise HTTPException(status_code=404, detail="Pet not found")
@@ -32,21 +34,28 @@ async def get_pet(id: str):
   return pet
 
 @router.delete('/{id}')
-async def delete_pet(id: str):
-  pet = next((a for a in pets if a.id == id), None)
-  
+async def delete_pet(id: UUID, session: SessionDep):
+  pet = session.exec(select(Pet).where(Pet.id == id)).first()
+
   if not pet:
     raise HTTPException(status_code=404, detail="Pet not found")
 
-  pets.remove(pet)
+  session.delete(pet)
+  session.commit()
 
-  return pet
+  return {"message": "Pet deleted"}
 
 @router.put('/{id}')
-async def update_pet(id: str, pet: PetBase):  
-  for i, item in enumerate(pets):
-    if item.id == id:
-      pets[i] = pet
-      return pet
+async def update_pet(id: UUID, pet: Pet, session: SessionDep) -> Pet:
+  _pet = session.exec(select(Pet).where(Pet.id == id)).one()
   
-  raise HTTPException(status_code=404, detail="Pet not found")
+  if not _pet:
+    raise HTTPException(status_code=404, detail="Pet not found")
+  
+  for key, value in pet.model_dump(exclude_unset=True).items(): # Only update fields provided in the request
+    setattr(_pet, key, value)
+
+  session.commit()
+  session.refresh(_pet)
+
+  return _pet
